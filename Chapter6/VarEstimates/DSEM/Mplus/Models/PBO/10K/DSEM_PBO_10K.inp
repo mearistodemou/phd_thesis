@@ -1,0 +1,57 @@
+TITLE: Location scale model for MPH data;
+
+DATA:	FILE = C:\Users\micha\OneDrive\Documents\CatVar\Mplus\df_PBO_MPLUS.csv;
+
+VARIABLE: NAMES ARE subject session drug trial RT RT_cue
+RT_target response outcome cue_duration target_duration feedback_duration
+deadline_feedback trial_duration ITI fix_duration summed_durations
+diff_total_dur IUI prev_outcome prep_duration RT_cue_inf logRT;
+  usevariables = logRT subject trial;
+  LAGGED = logRT(1);
+  WITHIN = trial;
+  cluster = subject;
+  MISSING = ALL (999);
+
+    ANALYSIS:   TYPE = TWOLEVEL RANDOM;
+        		estimator=bayes;
+                fbiter= 10000;
+                bseed=1028;
+                processors = 4;
+
+MODEL:
+
+%WITHIN%
+PHI | logRT on logRT&1; ! logRT is regressed on logRT at t-1;
+logv | logRT; !within-level variance as latent variable;
+TREND| logRT on trial; !logRT is regressed on trialnr !latent slope;
+      
+%BETWEEN%
+!Core parameters;
+[logRT]; !mean intercept, gamma_00;
+logRT;  !intercept variance, tau_00;
+
+[PHI] (armean);  !mean of autoregressive slope,gamma_10;
+PHI (arvar);   !autoregressive slope variance, tau_11;
+
+[logv] (meanvar); !mean intraindividual variation;
+logv (varvar); !variance of intraindividual variation;
+
+!Detrending with linear slope;
+[TREND]; TREND; !var and intercept for linear trend slope;
+
+!Covariances
+logRT WITH PHI; logRT WITH logv; logRT WITH trend;
+PHI WITH logv; PHI WITH TREND;
+logv WITH TREND;
+
+OUTPUT: STANDARDIZED;
+TECH1;
+TECH8;
+
+PLOT:
+    TYPE IS PLOT3; !to request plots
+
+SAVEDATA:
+BPARAMETERS = DSEM_chains_PBO.dat;
+FILE IS DSEM_factors_PBO.dat;
+SAVE IS fscores  (200);
